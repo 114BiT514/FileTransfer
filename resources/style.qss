@@ -145,3 +145,34 @@ QStatusBar {
     background: #e9eef6;
     color: #41506b;
 }
+
+/* ---------------- 启动角色选择对话框 ---------------- */
+StartDialog QLabel#lblTitle {
+    font-size: 18px;
+    font-weight: bold;
+    color: #1f3a5f;
+}
+StartDialog QLabel#lblSub {
+    color: #41506b;
+}
+StartDialog QLabel#lblHint {
+    color: #8292a8;
+}
+StartDialog QPushButton#btnServer,
+StartDialog QPushButton#btnClient {
+    font-size: 15px;
+    font-weight: bold;
+}
+StartDialog QPushButton#btnServer:hover,
+StartDialog QPushButton#btnClient:hover {
+    background: #1f6feb;
+}
+StartDialog QPushButton#btnClient {
+    background: #0e9f7a;
+}
+StartDialog QPushButton#btnClient:hover {
+    background: #0b7d61;
+}
+StartDialog QPushButton#btnClient:pressed {
+    background: #096a53;
+}

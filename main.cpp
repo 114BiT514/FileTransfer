@@ -1,6 +1,8 @@
 #include <QApplication>
 #include <QFile>
-#include "mainwindow.h"
+#include "startdialog.h"
+#include "serverwindow.h"
+#include "clientwindow.h"
 
 int main(int argc, char *argv[])
 {
@@ -18,7 +20,19 @@ int main(int argc, char *argv[])
         qss.close();
     }
 
-    MainWindow w;
+    // 1) 先弹出角色选择对话框：本次运行作为服务端还是客户端
+    StartDialog start;
+    if (start.exec() != QDialog::Accepted)
+        return 0;
+
+    // 2) 根据所选角色打开对应的独立窗口（两窗口复用同一套传输核心类）
+    if (start.selectedRole() == AppRole::Server) {
+        ServerWindow w;
+        w.show();
+        return app.exec();
+    }
+
+    ClientWindow w;
     w.show();
     return app.exec();
 }

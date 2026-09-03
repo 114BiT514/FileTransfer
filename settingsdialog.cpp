@@ -30,6 +30,26 @@ SettingsDialog::~SettingsDialog()
     delete ui;
 }
 
+/* 按角色裁剪界面：
+ *  - 服务端：不显示"服务器 IP"，端口文案改为"监听端口"；
+ *  - 客户端：不显示"接收保存目录"（客户端只发送、不保存）。
+ * 隐藏该行的标签与输入控件后，QFormLayout 会自动收起整行。 */
+void SettingsDialog::setRole(AppRole role)
+{
+    m_role = role;
+    if (role == AppRole::Server) {
+        setWindowTitle(QStringLiteral("服务端设置"));
+        ui->lblIp->setVisible(false);
+        ui->cbIp->setVisible(false);
+        ui->lblPort->setText(QStringLiteral("监听端口："));
+    } else {
+        setWindowTitle(QStringLiteral("连接设置"));
+        ui->lblSaveDir->setVisible(false);
+        ui->leSaveDir->setVisible(false);
+        ui->btnSaveDirBrowse->setVisible(false);
+    }
+}
+
 /* 事件过滤器：watched 控件收到事件时先经过本函数。
  * 这里只处理"获得焦点"事件并返回 false（继续交给控件自己处理）。 */
 bool SettingsDialog::eventFilter(QObject *watched, QEvent *event)

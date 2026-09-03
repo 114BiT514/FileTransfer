@@ -23,11 +23,17 @@ DropArea::DropArea(QWidget *parent)
     m_icon->setAlignment(Qt::AlignCenter);
 
     m_hint = new QLabel(this);
-    m_hint->setText(QStringLiteral("将文件拖拽到此处\n客户端：松开鼠标即发送\n服务端：松开鼠标保存到接收目录"));
+    m_hint->setText(QStringLiteral("将文件拖拽到此处"));
     m_hint->setAlignment(Qt::AlignCenter);
 
     layout->addWidget(m_icon);
     layout->addWidget(m_hint);
+}
+
+/* 供不同窗口设置各自的提示语（服务端=保存，客户端=发送） */
+void DropArea::setHint(const QString &text)
+{
+    m_hint->setText(text);
 }
 
 /* 文件拖入边界：判断是否含本地文件 URL，是则接受并高亮 */

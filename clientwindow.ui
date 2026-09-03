@@ -1,23 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>MainWindow</class>
- <widget class="QMainWindow" name="MainWindow">
+ <class>ClientWindow</class>
+ <widget class="QMainWindow" name="ClientWindow">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>980</width>
-    <height>680</height>
+    <width>880</width>
+    <height>620</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>800</width>
-    <height>560</height>
+    <width>720</width>
+    <height>520</height>
    </size>
   </property>
   <property name="windowTitle">
-   <string>Qt 文件传输工具</string>
+   <string>Qt 文件传输工具 - 客户端</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="mainLayout">
@@ -44,7 +44,7 @@
       <item>
        <widget class="QPushButton" name="btnSettings">
         <property name="toolTip">
-         <string>设置服务器 IP、端口与接收保存目录</string>
+         <string>设置目标服务器的 IP 与端口</string>
         </property>
         <property name="text">
          <string>连接设置</string>
@@ -52,19 +52,9 @@
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="btnListen">
-        <property name="toolTip">
-         <string>以服务端身份监听端口，等待客户端连接</string>
-        </property>
-        <property name="text">
-         <string>启动监听</string>
-        </property>
-       </widget>
-      </item>
-      <item>
        <widget class="QPushButton" name="btnConnect">
         <property name="toolTip">
-         <string>以客户端身份连接到服务器</string>
+         <string>连接 / 断开服务器</string>
         </property>
         <property name="text">
          <string>连接服务器</string>
@@ -81,16 +71,6 @@
         </property>
         <property name="text">
          <string>选择文件发送</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="btnOpenSaveDir">
-        <property name="toolTip">
-         <string>在文件管理器中打开接收保存目录</string>
-        </property>
-        <property name="text">
-         <string>打开保存目录</string>
         </property>
        </widget>
       </item>
@@ -125,7 +105,7 @@
        </size>
       </property>
       <property name="toolTip">
-       <string>把文件拖到这里：客户端松开鼠标即发送；服务端则保存到接收目录</string>
+       <string>把文件拖到这里，松开鼠标即发送给服务器</string>
       </property>
      </widget>
     </item>
@@ -137,7 +117,7 @@
       <item>
        <widget class="QLabel" name="lblTransfer">
         <property name="text">
-         <string>当前没有传输任务</string>
+         <string>当前没有发送任务</string>
         </property>
        </widget>
       </item>
@@ -247,7 +227,7 @@
          <item>
           <widget class="QLabel" name="lblConnState">
            <property name="text">
-            <string>客户端：未连接</string>
+            <string>连接状态：未连接</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>
@@ -255,19 +235,9 @@
           </widget>
          </item>
          <item>
-          <widget class="QLabel" name="lblServerState">
+          <widget class="QLabel" name="lblTarget">
            <property name="text">
-            <string>服务端：未监听</string>
-           </property>
-           <property name="wordWrap">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QLabel" name="lblSaveDir">
-           <property name="text">
-            <string>保存目录：未设置</string>
+            <string>目标服务器：未设置</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>
@@ -299,7 +269,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>980</width>
+     <width>880</width>
      <height>26</height>
     </rect>
    </property>
@@ -328,6 +298,9 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actOpenFile">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="text">
     <string>选择文件发送(&amp;O)</string>
    </property>

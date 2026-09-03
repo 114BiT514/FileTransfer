@@ -20,6 +20,7 @@ class DropArea : public QFrame
     Q_OBJECT
 public:
     explicit DropArea(QWidget *parent = nullptr);
+    void setHint(const QString &text);   // 设置区域中央的提示文字（按窗口角色定制）
 
 signals:
     void fileDropped(const QString &filePath);   // 每个被拖入的本地文件发一次
