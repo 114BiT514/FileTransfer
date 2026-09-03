@@ -7,8 +7,7 @@
 namespace Ui { class StartDialog; }
 
 /**
- * @brief 启动角色选择对话框：程序运行时先选择本次以服务端还是客户端身份运行，
- *        随后分别打开 ServerWindow（服务端窗口）或 ClientWindow（客户端窗口）。
+ * @brief 启动角色选择：决定打开服务端窗口还是客户端窗口。
  */
 class StartDialog : public QDialog
 {

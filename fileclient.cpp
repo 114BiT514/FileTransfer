@@ -7,8 +7,7 @@ FileClient::FileClient(QObject *parent)
     : QObject(parent)
 {
     m_socket = new QTcpSocket(this);
-    // 【信号与槽】Qt 网络类是异步事件驱动的：连接成功/断开/写出数据/出错
-    // 都通过信号通知，全程不做阻塞等待，界面不会卡死。
+    // 连接/断开/写出/出错全部通过信号异步通知，不做阻塞等待
     connect(m_socket, &QTcpSocket::connected, this, &FileClient::onConnected);
     connect(m_socket, &QTcpSocket::disconnected, this, &FileClient::onDisconnected);
     connect(m_socket, &QTcpSocket::bytesWritten, this, &FileClient::onBytesWritten);
@@ -20,15 +19,11 @@ FileClient::~FileClient()
     m_socket->abort();
 }
 
-//---------------------------------------------------------------------
-// 连接管理
-//---------------------------------------------------------------------
-
 void FileClient::connectToServer(const QString &host, quint16 port)
 {
     if (m_socket->state() != QAbstractSocket::UnconnectedState)
-        m_socket->abort();                    // 连接中/已连接时先复位，再重新连接
-    m_socket->connectToHost(host, port);      // 异步发起连接，结果由信号通知
+        m_socket->abort();
+    m_socket->connectToHost(host, port);
     emit logInfo(QStringLiteral("正在连接 %1:%2 ...").arg(host).arg(port));
 }
 
@@ -66,19 +61,13 @@ void FileClient::onDisconnected()
 
 void FileClient::onErrorOccurred(QAbstractSocket::SocketError)
 {
-    // 对端正常关闭属于常见情况，不按错误提示
-    if (m_socket->error() != QAbstractSocket::RemoteHostClosedError)
+    if (m_socket->error() != QAbstractSocket::RemoteHostClosedError)   // 对端正常关闭不算错误
         emit logError(QStringLiteral("网络错误：%1").arg(m_socket->errorString()));
     if (m_transferring)
         finishTransfer(false, m_socket->errorString());
-    // 连接失败（如拒绝连接/超时）时套接字回到未连接状态，需让界面恢复
     if (m_socket->state() == QAbstractSocket::UnconnectedState)
-        emit stateChanged(false);
+        emit stateChanged(false);   // 连接失败时让界面恢复状态
 }
-
-//---------------------------------------------------------------------
-// 发送入口
-//---------------------------------------------------------------------
 
 void FileClient::sendText(const QString &text)
 {
@@ -150,48 +139,41 @@ void FileClient::sendFile(const QString &filePath)
     startTransfer();
 }
 
-/* 组装协议头并启动一次传输
- * 协议头 = 消息类型(4B) + 文件名长度(4B) + 文件名(UTF-8) + 数据大小(8B)
- * 文本消息 nameLen 固定为 0（不带文件名）；文件消息才携带文件名。
- */
+/* 组协议头：类型(4B)+名长(4B)+文件名(UTF-8)+数据大小(8B)，文本消息 nameLen=0 */
 void FileClient::startTransfer()
 {
     const QByteArray name = (m_type == Proto::MT_FILE) ? m_fileName.toUtf8() : QByteArray();
     QByteArray header;
     QDataStream out(&header, QIODevice::WriteOnly);
-    out.setVersion(QDataStream::Qt_6_0);      // 与接收端约定同一序列化版本（大端序）
+    out.setVersion(QDataStream::Qt_6_0);      // 大端序，与接收端约定一致
     out << m_type << quint32(name.size()) << quint64(m_fileSize);
-    header.append(name);                      // 紧跟文件名字节（文本消息时为空）
+    header.append(name);
 
     m_headerSize = header.size();
-    m_queued = 0;                             // 数据部分已排队字节数
-    m_acked = 0;                              // 已确认写出的字节数
+    m_queued = 0;
+    m_acked = 0;
     m_lastEmitted = 0;
     m_transferring = true;
 
-    m_socket->write(header);                  // 先写协议头（数据量小，一次写出）
+    m_socket->write(header);                  // 先写协议头
     emit sendStarted(m_fileName, m_fileSize);
-    pump();                                   // 立即写入第一批数据块
+    pump();
 }
 
-/* 流水线发送核心：
- *  - 每次只从文件读 64KB 写入套接字，大文件不会一次性占用内存；
- *  - 套接字内部待写缓冲（bytesToWrite）达到水位线就暂停，等 bytesWritten
- *    通知"已写出"后再继续写下一块，发送速度自动匹配网络带宽。
- */
+/* 流水线发送：每次只写 64KB，缓冲水位到上限就暂停，等 bytesWritten 再续 */
 void FileClient::pump()
 {
     if (!m_transferring)
         return;
     if (m_socket->bytesToWrite() >= Proto::kChunkSize * 4)
-        return;                               // 水位已满，等 bytesWritten 再继续
+        return;                               // 水位已满
 
     const qint64 remaining = m_fileSize - m_queued;
     if (remaining > 0) {
         const qint64 want = qMin<qint64>(Proto::kChunkSize, remaining);
         QByteArray block;
         if (m_type == Proto::MT_FILE) {
-            block = m_file->read(want);       // 从文件读一小块
+            block = m_file->read(want);
             if (block.size() != int(want)) {  // 读到的字节数不足：文件读取失败
                 finishTransfer(false, QStringLiteral("读取本地文件失败"));
                 return;
@@ -199,25 +181,21 @@ void FileClient::pump()
         } else {
             block = m_pendingText.mid(int(m_queued), int(want));
         }
-        m_socket->write(block);               // 只写一小块，立即返回（非阻塞）
+        m_socket->write(block);
         m_queued += block.size();
     }
 
-    // 数据已全部排队且套接字缓冲已清空 -> 整个传输完成
     if (m_queued >= m_fileSize && m_socket->bytesToWrite() == 0)
         finishTransfer(true);
 }
 
-/* bytesWritten(bytes)：表示又有 bytes 字节成功写到了操作系统。
- * 在这里更新进度并调用 pump() 继续发送 ——
- * 即作业要求的"write + bytesWritten 信号驱动的流水线方式"。
- */
+/* bytesWritten 驱动的流水线：更新进度并继续写下一块 */
 void FileClient::onBytesWritten(qint64 bytes)
 {
     if (!m_transferring)
         return;
     m_acked += bytes;
-    const qint64 payloadAcked = qMax<qint64>(0, m_acked - m_headerSize); // 去掉协议头部分
+    const qint64 payloadAcked = qMax<qint64>(0, m_acked - m_headerSize);
     if (payloadAcked - m_lastEmitted >= Proto::kProgressStep
             || payloadAcked == m_fileSize) {
         m_lastEmitted = payloadAcked;
@@ -235,10 +213,8 @@ void FileClient::finishTransfer(bool ok, const QString &reason)
         m_file->deleteLater();
         m_file = nullptr;
     }
-    // 先保存结果并复位全部状态，之后再发信号。
-    // 顺序不能反：sendFinished 的接收方（界面/调用方）很可能在槽里立即发起
-    // 下一次传输（重入），若先发信号再复位，会把新传输刚建立的状态
-    // （m_queued / m_fileSize / m_type 等）清空，导致传输悄悄"失踪"。
+    // 先复位再发信号：接收方可能在槽里立即发起下一次传输（重入），
+    // 顺序反了会把新传输刚建立的状态清空
     const QString name = m_fileName;
     const qint64 size = m_fileSize;
     m_type = 0;

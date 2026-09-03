@@ -18,13 +18,8 @@ Q_DECLARE_METATYPE(AppSettings)   // 如需放入 QVariant / 队列连接时使�
 namespace Ui { class SettingsDialog; }
 
 /**
- * @brief "连接设置"对话框（必做项：窗口间通信）
- *
- * 用于设置服务器 IP、端口、接收保存目录。
- * 点击"确定"后通过自定义信号 settingsApplied(AppSettings)
- * 把参数传递给主窗口 —— 考察信号与槽的跨窗口通信。
- *
- * 对话框是"角色感知"的：服务端只显示 端口+保存目录，客户端只显示 IP+端口。
+ * @brief 连接设置对话框，确定后通过 settingsApplied 信号把参数传给主窗口。
+ * 按角色只显示相关字段：服务端=端口+保存目录，客户端=IP+端口。
  */
 class SettingsDialog : public QDialog
 {
@@ -34,14 +29,14 @@ public:
     ~SettingsDialog() override;
 
     void setRole(AppRole role);               // 按角色显示/隐藏字段（须在 exec 前调用）
-    void setSettings(const AppSettings &s);   // 打开对话框前填入当前设置
-    AppSettings settings() const;             // 读取对话框中的设置
+    void setSettings(const AppSettings &s);
+    AppSettings settings() const;
 
 signals:
     void settingsApplied(const AppSettings &settings);   // 参数确认 -> 发给主窗口
 
 protected:
-    // 【事件过滤器】安装到输入控件上：获得焦点时自动全选文字
+    // 事件过滤器：获得焦点时自动全选文字
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private slots:

@@ -7,8 +7,6 @@ StartDialog::StartDialog(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // 【信号与槽】两个角色按钮：点击后记录所选角色并关闭对话框，
-    // 由 main.cpp 根据结果打开对应的服务端/客户端窗口
     connect(ui->btnServer, &QPushButton::clicked, this, &StartDialog::onServerClicked);
     connect(ui->btnClient, &QPushButton::clicked, this, &StartDialog::onClientClicked);
     connect(ui->buttonBox, &QDialogButtonBox::rejected, this, &QDialog::reject);

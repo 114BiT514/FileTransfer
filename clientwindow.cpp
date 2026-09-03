@@ -30,12 +30,11 @@ ClientWindow::ClientWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // 布局伸缩因子：底部（日志+状态）区域随窗口拉伸
+    // 底部日志+状态区随窗口拉伸
     ui->mainLayout->setStretch(3, 1);
     ui->bottomLayout->setStretch(0, 3);
     ui->bottomLayout->setStretch(1, 1);
 
-    // Qt 资源系统图标
     ui->btnSettings->setIcon(iconRes(QStringLiteral("settings")));
     ui->btnConnect->setIcon(iconRes(QStringLiteral("connect")));
     ui->btnOpenFile->setIcon(iconRes(QStringLiteral("send")));
@@ -46,10 +45,8 @@ ClientWindow::ClientWindow(QWidget *parent)
     ui->actSettings->setIcon(iconRes(QStringLiteral("settings")));
     ui->actAbout->setIcon(iconRes(QStringLiteral("app")));
 
-    // 客户端窗口的拖拽提示语
     ui->dropArea->setHint(QStringLiteral("将文件拖拽到此处\n松开鼠标即发送给服务器"));
 
-    // 发送逻辑（Model 层）
     m_client = new FileClient(this);
 
     m_statusLabel = new QLabel(QStringLiteral("未连接"), this);
@@ -57,20 +54,18 @@ ClientWindow::ClientWindow(QWidget *parent)
 
     loadSettings();
 
-    /* ==================== 信号与槽连接 ==================== */
-    // 1) 按钮与输入框
+    // 信号与槽
     connect(ui->btnSettings, &QPushButton::clicked, this, &ClientWindow::openSettings);
     connect(ui->btnConnect, &QPushButton::clicked, this, &ClientWindow::onToggleConnect);
     connect(ui->btnOpenFile, &QPushButton::clicked, this, &ClientWindow::onOpenFileToSend);
     connect(ui->btnExit, &QPushButton::clicked, this, &QWidget::close);
     connect(ui->btnSendText, &QPushButton::clicked, this, &ClientWindow::onSendTextClicked);
     connect(ui->leMessage, &QLineEdit::returnPressed, this, &ClientWindow::onSendTextClicked);
-    // 2) 菜单
     connect(ui->actOpenFile, &QAction::triggered, this, &ClientWindow::onOpenFileToSend);
     connect(ui->actExit, &QAction::triggered, this, &QWidget::close);
     connect(ui->actSettings, &QAction::triggered, this, &ClientWindow::openSettings);
     connect(ui->actAbout, &QAction::triggered, this, &ClientWindow::onAbout);
-    // 3) FileClient 信号 -> 界面
+    // FileClient 信号 -> 界面
     connect(m_client, &FileClient::stateChanged, this, &ClientWindow::onClientStateChanged);
     connect(m_client, &FileClient::sendStarted,  this, &ClientWindow::onSendStarted);
     connect(m_client, &FileClient::sendProgress, this, &ClientWindow::onSendProgress);
@@ -78,11 +73,10 @@ ClientWindow::ClientWindow(QWidget *parent)
     connect(m_client, &FileClient::sendFailed,   this, &ClientWindow::onSendFailed);
     connect(m_client, &FileClient::logInfo,      this, &ClientWindow::onLogInfo);
     connect(m_client, &FileClient::logError,     this, &ClientWindow::onLogError);
-    // 4) 拖拽区：拖入文件 -> 发送
+    // 拖拽区：拖入文件 -> 发送
     connect(ui->dropArea, &DropArea::fileDropped, this, &ClientWindow::onFileDropped);
 
-    // 【信号与槽】传输结束后保留 1.5 秒，由定时器把进度区复位为空闲的 0% 状态
-    // （完成/失败两条结束路径都会启动它，进度条不会卡在任何数值上）
+    // 传输结束后 1.5 秒把进度区复位为空闲状态
     m_progressTimer = new QTimer(this);
     m_progressTimer->setSingleShot(true);
     m_progressTimer->setInterval(kProgressResetMs);
@@ -98,17 +92,12 @@ ClientWindow::ClientWindow(QWidget *parent)
 
 ClientWindow::~ClientWindow()
 {
-    // 析构顺序：先切断信号（避免断网时触发的"发送失败"信号在窗口销毁过程中
-    // 弹出模态对话框），再断开网络，最后销毁界面
+    // 先切断信号再断网，避免断网触发的"发送失败"信号在销毁过程中弹窗
     m_client->disconnect(this);
     m_client->disconnectFromServer();
     delete ui;
     ui = nullptr;
 }
-
-//---------------------------------------------------------------------
-// 设置
-//---------------------------------------------------------------------
 
 void ClientWindow::loadSettings()
 {
@@ -125,16 +114,16 @@ void ClientWindow::saveSettingsToDisk()
     s.setValue(QStringLiteral("network/port"), m_settings.port);
 }
 
-/* 打开"连接设置"对话框（跨窗口信号槽把参数传回） */
+/* 打开设置对话框 */
 void ClientWindow::openSettings()
 {
     if (!m_settingsDialog) {
         m_settingsDialog = new SettingsDialog(this);
-        // 【跨窗口通信】对话框 -> 本窗口
+        // 跨窗口通信：对话框 -> 本窗口
         connect(m_settingsDialog, &SettingsDialog::settingsApplied,
                 this, &ClientWindow::onSettingsApplied);
     }
-    m_settingsDialog->setRole(AppRole::Client);   // 对话框按角色只显示 IP/端口
+    m_settingsDialog->setRole(AppRole::Client);
     m_settingsDialog->setSettings(m_settings);
     m_settingsDialog->exec();
 }
@@ -151,10 +140,6 @@ void ClientWindow::onSettingsApplied(const AppSettings &settings)
     if (changed && m_connected)
         appendLog(QStringLiteral("提示：目标已修改，断开后重新连接才会生效。"), LogLevel::Warn);
 }
-
-//---------------------------------------------------------------------
-// 界面动作
-//---------------------------------------------------------------------
 
 void ClientWindow::onToggleConnect()
 {
@@ -202,7 +187,7 @@ void ClientWindow::onAbout()
                        "构建标记：进度自动归零版 v3"));
 }
 
-/* 拖入文件：客户端角色 = 发送给服务器 */
+/* 拖入文件 -> 发送给服务器 */
 void ClientWindow::onFileDropped(const QString &filePath)
 {
     const QFileInfo info(filePath);
@@ -220,10 +205,6 @@ void ClientWindow::onFileDropped(const QString &filePath)
     m_client->sendFile(filePath);
 }
 
-//---------------------------------------------------------------------
-// FileClient 信号 -> 界面刷新
-//---------------------------------------------------------------------
-
 void ClientWindow::onClientStateChanged(bool connected)
 {
     m_connected = connected;
@@ -233,7 +214,7 @@ void ClientWindow::onClientStateChanged(bool connected)
 
 void ClientWindow::onSendStarted(const QString &fileName, qint64 total)
 {
-    m_progressTimer->stop();         // 新任务开始：取消尚未触发的复位定时
+    m_progressTimer->stop();         // 取消尚未触发的复位定时
     ui->progressBar->setValue(0);
     ui->lblTransfer->setText(QStringLiteral("正在发送：%1").arg(fileName));
     ui->lblProgressDetail->setText(QStringLiteral("0 / %1（0%%）")
@@ -250,7 +231,7 @@ void ClientWindow::onSendProgress(const QString &fileName, qint64 sent, qint64 t
                                             Proto::formatFileSize(total))
                                        .arg(percent));
     if (sent >= total) {
-        // 双保险：进度已到 100% 就启动复位定时（正常由 sendFinished 启动，此处兜底）
+        // 双保险：进度到 100% 就启动复位定时
         m_progressTimer->start();
     }
 }
@@ -261,30 +242,25 @@ void ClientWindow::onSendFinished(const QString &fileName, qint64 total)
     ui->lblTransfer->setText(QStringLiteral("发送完成：%1").arg(fileName));
     ui->lblProgressDetail->setText(QStringLiteral("共 %1").arg(Proto::formatFileSize(total)));
     statusBar()->showMessage(QStringLiteral("发送完成：%1").arg(fileName), 8000);
-    m_progressTimer->start();        // 100% 完成信息保留 1.5 秒后回到空闲状态
+    m_progressTimer->start();        // 1.5 秒后回到空闲状态
 }
 
 void ClientWindow::onSendFailed(const QString &reason)
 {
-    // 失败原因短暂显示后同样复位（详细原因已写入日志），避免进度条卡在中途数值
-    m_progressTimer->start();
+    m_progressTimer->start();   // 失败信息短暂显示后同样复位，详情见日志
     ui->lblTransfer->setText(QStringLiteral("发送失败：%1").arg(reason));
     statusBar()->showMessage(QStringLiteral("发送失败：%1").arg(reason), 8000);
     QMessageBox::warning(this, QStringLiteral("发送失败"),
                          QStringLiteral("%1\n\n详细信息见日志。").arg(reason));
 }
 
-/* 定时器到点：回到最初的空闲状态 —— 0% 灰色进度条 + "当前没有发送任务" */
+/* 回到空闲的 0% 状态 */
 void ClientWindow::resetProgressToIdle()
 {
     ui->progressBar->setValue(0);
     ui->lblTransfer->setText(QStringLiteral("当前没有发送任务"));
     ui->lblProgressDetail->setText(QString());
 }
-
-//---------------------------------------------------------------------
-// 日志与界面状态
-//---------------------------------------------------------------------
 
 void ClientWindow::appendLog(const QString &msg, LogLevel level)
 {

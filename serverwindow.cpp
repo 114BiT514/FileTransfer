@@ -32,12 +32,11 @@ ServerWindow::ServerWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // 布局伸缩因子：底部（日志+状态）区域随窗口拉伸
+    // 底部日志+状态区随窗口拉伸
     ui->mainLayout->setStretch(3, 1);
     ui->bottomLayout->setStretch(0, 3);
     ui->bottomLayout->setStretch(1, 1);
 
-    // Qt 资源系统图标
     ui->btnSettings->setIcon(iconRes(QStringLiteral("settings")));
     ui->btnListen->setIcon(iconRes(QStringLiteral("server")));
     ui->btnOpenSaveDir->setIcon(iconRes(QStringLiteral("folder")));
@@ -47,10 +46,8 @@ ServerWindow::ServerWindow(QWidget *parent)
     ui->actSettings->setIcon(iconRes(QStringLiteral("settings")));
     ui->actAbout->setIcon(iconRes(QStringLiteral("app")));
 
-    // 服务端窗口的拖拽提示语
     ui->dropArea->setHint(QStringLiteral("将文件拖拽到此处\n松开鼠标即保存到接收目录"));
 
-    // 接收逻辑（Model 层）
     m_server = new FileServer(this);
 
     m_statusLabel = new QLabel(QStringLiteral("未监听"), this);
@@ -58,18 +55,16 @@ ServerWindow::ServerWindow(QWidget *parent)
 
     loadSettings();
 
-    /* ==================== 信号与槽连接 ==================== */
-    // 1) 按钮
+    // 信号与槽
     connect(ui->btnSettings, &QPushButton::clicked, this, &ServerWindow::openSettings);
     connect(ui->btnListen, &QPushButton::clicked, this, &ServerWindow::onToggleListen);
     connect(ui->btnOpenSaveDir, &QPushButton::clicked, this, &ServerWindow::onOpenSaveDir);
     connect(ui->btnExit, &QPushButton::clicked, this, &QWidget::close);
-    // 2) 菜单
     connect(ui->actOpenSaveDir, &QAction::triggered, this, &ServerWindow::onOpenSaveDir);
     connect(ui->actExit, &QAction::triggered, this, &QWidget::close);
     connect(ui->actSettings, &QAction::triggered, this, &ServerWindow::openSettings);
     connect(ui->actAbout, &QAction::triggered, this, &ServerWindow::onAbout);
-    // 3) FileServer 信号 -> 界面
+    // FileServer 信号 -> 界面
     connect(m_server, &FileServer::stateChanged,       this, &ServerWindow::onServerStateChanged);
     connect(m_server, &FileServer::clientConnected,    this, &ServerWindow::onClientConnected);
     connect(m_server, &FileServer::clientDisconnected, this, &ServerWindow::onClientDisconnected);
@@ -80,11 +75,9 @@ ServerWindow::ServerWindow(QWidget *parent)
     connect(m_server, &FileServer::textReceived,       this, &ServerWindow::onTextReceived);
     connect(m_server, &FileServer::logInfo,            this, &ServerWindow::onLogInfo);
     connect(m_server, &FileServer::logError,           this, &ServerWindow::onLogError);
-    // 4) 拖拽区：拖入文件 -> 保存
     connect(ui->dropArea, &DropArea::fileDropped, this, &ServerWindow::onFileDropped);
 
-    // 【信号与槽】传输结束后保留 1.5 秒，由定时器把进度区复位为空闲的 0% 状态
-    // （完成/失败/本地保存三条结束路径都会启动它，进度条不会卡在任何数值上）
+    // 传输结束后 1.5 秒把进度区复位为空闲状态
     m_progressTimer = new QTimer(this);
     m_progressTimer->setSingleShot(true);
     m_progressTimer->setInterval(kProgressResetMs);
@@ -100,17 +93,12 @@ ServerWindow::ServerWindow(QWidget *parent)
 
 ServerWindow::~ServerWindow()
 {
-    // 析构顺序：先切断信号（防止停止监听过程中发出的信号访问正在销毁的界面），
-    // 再停止网络逻辑，最后销毁界面
+    // 先切断信号再停止监听，防止析构过程中残余信号访问已销毁的界面
     m_server->disconnect(this);
     m_server->stopListen();
     delete ui;
     ui = nullptr;
 }
-
-//---------------------------------------------------------------------
-// 设置
-//---------------------------------------------------------------------
 
 void ServerWindow::loadSettings()
 {
@@ -140,16 +128,16 @@ void ServerWindow::applySettingsToUi()
     ui->lblSaveDir->setToolTip(m_settings.saveDir);
 }
 
-/* 打开"服务端设置"对话框（跨窗口信号槽把参数传回） */
+/* 打开设置对话框 */
 void ServerWindow::openSettings()
 {
     if (!m_settingsDialog) {
         m_settingsDialog = new SettingsDialog(this);
-        // 【跨窗口通信】对话框 -> 本窗口
+        // 跨窗口通信：对话框 -> 本窗口
         connect(m_settingsDialog, &SettingsDialog::settingsApplied,
                 this, &ServerWindow::onSettingsApplied);
     }
-    m_settingsDialog->setRole(AppRole::Server);   // 对话框按角色只显示相关字段
+    m_settingsDialog->setRole(AppRole::Server);
     m_settingsDialog->setSettings(m_settings);
     m_settingsDialog->exec();
 }
@@ -159,7 +147,7 @@ void ServerWindow::onSettingsApplied(const AppSettings &settings)
     const bool portChanged = (m_settings.port != settings.port);
     m_settings.port = settings.port;
     m_settings.saveDir = settings.saveDir;
-    m_server->setSaveDir(m_settings.saveDir);     // 保存目录立即生效
+    m_server->setSaveDir(m_settings.saveDir);
     applySettingsToUi();
     saveSettingsToDisk();
     appendLog(QStringLiteral("服务端设置已更新：监听端口 %1，保存目录 %2")
@@ -168,10 +156,6 @@ void ServerWindow::onSettingsApplied(const AppSettings &settings)
         appendLog(QStringLiteral("提示：监听端口已修改，请先停止监听再重新启动以生效。"),
                   LogLevel::Warn);
 }
-
-//---------------------------------------------------------------------
-// 界面动作
-//---------------------------------------------------------------------
 
 void ServerWindow::onToggleListen()
 {
@@ -201,7 +185,7 @@ void ServerWindow::onAbout()
                        "构建标记：进度自动归零版 v3"));
 }
 
-/* 拖入文件：服务端角色 = 保存到接收目录 */
+/* 拖入文件 -> 保存到接收目录 */
 void ServerWindow::onFileDropped(const QString &filePath)
 {
     const QFileInfo info(filePath);
@@ -230,7 +214,7 @@ void ServerWindow::saveLocalFile(const QString &filePath)
         }
     }
     if (QFile::copy(filePath, target)) {
-        // 本地拖入保存也用进度区给出直观反馈：显示 100%，保留 1.5 秒后回到空闲状态
+        // 进度区显示保存反馈，1.5 秒后复位
         m_progressTimer->stop();
         ui->progressBar->setValue(100);
         ui->lblTransfer->setText(QStringLiteral("已保存：%1").arg(info.fileName()));
@@ -244,10 +228,6 @@ void ServerWindow::saveLocalFile(const QString &filePath)
                              QStringLiteral("无法把文件复制到接收目录，详见日志。"));
     }
 }
-
-//---------------------------------------------------------------------
-// FileServer 信号 -> 界面刷新
-//---------------------------------------------------------------------
 
 void ServerWindow::onServerStateChanged(bool listening)
 {
@@ -270,7 +250,7 @@ void ServerWindow::onClientDisconnected(const QString &peer)
 
 void ServerWindow::onRecvStarted(const QString &fileName, qint64 total)
 {
-    m_progressTimer->stop();         // 新任务开始：取消尚未触发的复位定时
+    m_progressTimer->stop();         // 取消尚未触发的复位定时
     ui->progressBar->setValue(0);
     ui->lblTransfer->setText(QStringLiteral("正在接收：%1").arg(fileName));
     ui->lblProgressDetail->setText(QStringLiteral("0 / %1（0%%）")
@@ -287,9 +267,7 @@ void ServerWindow::onRecvProgress(const QString &fileName, qint64 received, qint
                                             Proto::formatFileSize(total))
                                        .arg(percent));
     if (received >= total) {
-        // 双保险：进度已到 100% 就启动复位定时。正常情况下 recvFinished 会先来
-        // 并启动同一个定时（重复 start 只是重新计时），这里保证即便结束信号
-        // 因任何原因没有送达，进度条也不会永远停在 100%。
+        // 双保险：进度到 100% 就启动复位定时，避免进度条卡住
         m_progressTimer->start();
     }
 }
@@ -301,18 +279,17 @@ void ServerWindow::onRecvFinished(const QString &fileName, qint64 total, const Q
     ui->lblProgressDetail->setText(QStringLiteral("共 %1，保存于 %2")
                                        .arg(Proto::formatFileSize(total), savedPath));
     statusBar()->showMessage(QStringLiteral("文件已保存：%1").arg(savedPath), 8000);
-    m_progressTimer->start();        // 100% 完成信息保留 1.5 秒后回到空闲状态
+    m_progressTimer->start();        // 1.5 秒后回到空闲状态
 }
 
 void ServerWindow::onRecvFailed(const QString &reason)
 {
-    // 失败原因短暂显示后同样复位（详细原因已写入日志），避免进度条卡在中途数值
-    m_progressTimer->start();
+    m_progressTimer->start();        // 失败信息短暂显示后同样复位，详情见日志
     ui->lblTransfer->setText(QStringLiteral("接收失败：%1").arg(reason));
     statusBar()->showMessage(QStringLiteral("接收失败：%1").arg(reason), 8000);
 }
 
-/* 定时器到点：回到最初的空闲状态 —— 0% 灰色进度条 + "当前没有接收任务" */
+/* 回到空闲的 0% 状态 */
 void ServerWindow::resetProgressToIdle()
 {
     ui->progressBar->setValue(0);
@@ -324,10 +301,6 @@ void ServerWindow::onTextReceived(const QString &peer, const QString &text)
 {
     appendLog(QStringLiteral("收到来自 %1 的文本消息：%2").arg(peer, text), LogLevel::Ok);
 }
-
-//---------------------------------------------------------------------
-// 日志与界面状态
-//---------------------------------------------------------------------
 
 void ServerWindow::appendLog(const QString &msg, LogLevel level)
 {

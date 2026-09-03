@@ -13,19 +13,18 @@ int main(int argc, char *argv[])
     // 应用图标（Qt 资源系统）
     QApplication::setWindowIcon(QIcon(QStringLiteral(":/icons/app.png")));
 
-    // 加载 QSS 全局样式表（打包在资源系统里），实现按钮悬停、圆角、拖拽高亮等效果
+    // 加载 QSS 样式表
     QFile qss(QStringLiteral(":/style.qss"));
     if (qss.open(QIODevice::ReadOnly | QIODevice::Text)) {
         app.setStyleSheet(QString::fromUtf8(qss.readAll()));
         qss.close();
     }
 
-    // 1) 先弹出角色选择对话框：本次运行作为服务端还是客户端
+    // 先选角色，再打开对应的独立窗口
     StartDialog start;
     if (start.exec() != QDialog::Accepted)
         return 0;
 
-    // 2) 根据所选角色打开对应的独立窗口（两窗口复用同一套传输核心类）
     if (start.selectedRole() == AppRole::Server) {
         ServerWindow w;
         w.show();

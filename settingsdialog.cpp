@@ -11,7 +11,6 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // 【信号与槽】"浏览..."打开目录选择对话框；按钮盒确定/取消各接一个槽
     connect(ui->btnSaveDirBrowse, &QPushButton::clicked,
             this, &SettingsDialog::onBrowseClicked);
     connect(ui->buttonBox, &QDialogButtonBox::accepted,
@@ -19,8 +18,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     connect(ui->buttonBox, &QDialogButtonBox::rejected,
             this, &QDialog::reject);
 
-    // 【事件过滤器】把过滤器安装到 IP 输入框与目录输入框上：
-    // 拦截它们的 FocusIn 事件，让获得焦点时文字自动全选，方便直接覆盖输入。
+    // 事件过滤器：输入框获得焦点时自动全选
     ui->cbIp->lineEdit()->installEventFilter(this);
     ui->leSaveDir->installEventFilter(this);
 }
@@ -30,10 +28,7 @@ SettingsDialog::~SettingsDialog()
     delete ui;
 }
 
-/* 按角色裁剪界面：
- *  - 服务端：不显示"服务器 IP"，端口文案改为"监听端口"；
- *  - 客户端：不显示"接收保存目录"（客户端只发送、不保存）。
- * 隐藏该行的标签与输入控件后，QFormLayout 会自动收起整行。 */
+/* 按角色隐藏无关字段（QFormLayout 中隐藏整行控件后会自动收起） */
 void SettingsDialog::setRole(AppRole role)
 {
     m_role = role;
@@ -50,8 +45,7 @@ void SettingsDialog::setRole(AppRole role)
     }
 }
 
-/* 事件过滤器：watched 控件收到事件时先经过本函数。
- * 这里只处理"获得焦点"事件并返回 false（继续交给控件自己处理）。 */
+/* 事件过滤器：处理"获得焦点"事件，其余放行 */
 bool SettingsDialog::eventFilter(QObject *watched, QEvent *event)
 {
     if (event->type() == QEvent::FocusIn) {
@@ -88,8 +82,7 @@ void SettingsDialog::onBrowseClicked()
 void SettingsDialog::onOkClicked()
 {
     const AppSettings s = settings();
-    // 按角色校验各自可见的字段：客户端校验 IP（不校验隐藏的保存目录），
-    // 服务端校验保存目录（不校验隐藏的 IP），否则隐藏字段为空会误报错
+    // 按角色校验可见字段，被隐藏的字段不参与校验
     if (m_role == AppRole::Client) {
         if (s.host.isEmpty()) {
             QMessageBox::warning(this, QStringLiteral("提示"),
@@ -103,7 +96,7 @@ void SettingsDialog::onOkClicked()
             return;
         }
     }
-    // 【跨窗口通信】通过自定义信号把设置参数传递给主窗口，然后关闭对话框
+    // 跨窗口通信：把设置参数发给主窗口
     emit settingsApplied(s);
     accept();
 }
