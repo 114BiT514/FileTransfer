@@ -10,6 +10,7 @@ namespace Ui { class ClientWindow; }
 QT_END_NAMESPACE
 
 class FileClient;
+class QTimer;
 
 /**
  * @brief 客户端窗口（View 层）：只负责"连接服务器、发送文本/文件"，
@@ -48,6 +49,9 @@ private slots:
     void onLogInfo(const QString &msg);
     void onLogError(const QString &msg);
 
+private slots:
+    void resetProgressToIdle();  // 传输结束保留数秒后，进度区回到空闲的 0% 状态
+
 private:
     void appendLog(const QString &msg, LogLevel level = LogLevel::Info);
     void updateUiState();
@@ -59,6 +63,7 @@ private:
     Ui::ClientWindow *ui = nullptr;
     FileClient *m_client = nullptr;               // 发送逻辑（Model 层）
     SettingsDialog *m_settingsDialog = nullptr;
+    QTimer *m_progressTimer = nullptr;            // 完成后延时隐藏进度区
     AppSettings m_settings;                       // 使用 host 与 port
     bool m_connected = false;
     QLabel *m_statusLabel = nullptr;              // 状态栏常驻信息

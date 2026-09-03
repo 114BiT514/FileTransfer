@@ -88,14 +88,20 @@ void SettingsDialog::onBrowseClicked()
 void SettingsDialog::onOkClicked()
 {
     const AppSettings s = settings();
-    // 输入校验：不合法给出提示，对话框不关闭
-    if (s.host.isEmpty()) {
-        QMessageBox::warning(this, QStringLiteral("提示"), QStringLiteral("服务器 IP 不能为空。"));
-        return;
-    }
-    if (s.saveDir.isEmpty()) {
-        QMessageBox::warning(this, QStringLiteral("提示"), QStringLiteral("接收保存目录不能为空。"));
-        return;
+    // 按角色校验各自可见的字段：客户端校验 IP（不校验隐藏的保存目录），
+    // 服务端校验保存目录（不校验隐藏的 IP），否则隐藏字段为空会误报错
+    if (m_role == AppRole::Client) {
+        if (s.host.isEmpty()) {
+            QMessageBox::warning(this, QStringLiteral("提示"),
+                                 QStringLiteral("服务器 IP 不能为空。"));
+            return;
+        }
+    } else {
+        if (s.saveDir.isEmpty()) {
+            QMessageBox::warning(this, QStringLiteral("提示"),
+                                 QStringLiteral("接收保存目录不能为空。"));
+            return;
+        }
     }
     // 【跨窗口通信】通过自定义信号把设置参数传递给主窗口，然后关闭对话框
     emit settingsApplied(s);

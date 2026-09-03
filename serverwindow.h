@@ -11,6 +11,7 @@ namespace Ui { class ServerWindow; }
 QT_END_NAMESPACE
 
 class FileServer;
+class QTimer;
 
 /**
  * @brief 服务端窗口（View 层）：只负责"监听端口、接收并保存文件"，
@@ -51,6 +52,9 @@ private slots:
     void onLogInfo(const QString &msg);
     void onLogError(const QString &msg);
 
+private slots:
+    void resetProgressToIdle();  // 传输结束保留数秒后，进度区回到空闲的 0% 状态
+
 private:
     void appendLog(const QString &msg, LogLevel level = LogLevel::Info);
     void updateUiState();
@@ -64,6 +68,7 @@ private:
     Ui::ServerWindow *ui = nullptr;
     FileServer *m_server = nullptr;               // 接收逻辑（Model 层）
     SettingsDialog *m_settingsDialog = nullptr;
+    QTimer *m_progressTimer = nullptr;            // 完成后延时隐藏进度区
     AppSettings m_settings;                       // 使用 port 与 saveDir
     bool m_listening = false;
     QStringList m_peers;                          // 在线客户端列表

@@ -12,6 +12,12 @@
 #include <QMessageBox>
 #include <QSettings>
 #include <QStatusBar>
+#include <QTimer>
+
+namespace {
+// 传输结束（100%或失败）后，进度区保留 1.5 秒，然后回到空闲的 0% 状态
+constexpr int kProgressResetMs = 1500;
+}
 
 QIcon ClientWindow::iconRes(const QString &name)
 {
@@ -74,6 +80,13 @@ ClientWindow::ClientWindow(QWidget *parent)
     connect(m_client, &FileClient::logError,     this, &ClientWindow::onLogError);
     // 4) 拖拽区：拖入文件 -> 发送
     connect(ui->dropArea, &DropArea::fileDropped, this, &ClientWindow::onFileDropped);
+
+    // 【信号与槽】传输结束后保留 1.5 秒，由定时器把进度区复位为空闲的 0% 状态
+    // （完成/失败两条结束路径都会启动它，进度条不会卡在任何数值上）
+    m_progressTimer = new QTimer(this);
+    m_progressTimer->setSingleShot(true);
+    m_progressTimer->setInterval(kProgressResetMs);
+    connect(m_progressTimer, &QTimer::timeout, this, &ClientWindow::resetProgressToIdle);
 
     updateUiState();
     updateTitle();
@@ -184,7 +197,8 @@ void ClientWindow::onAbout()
         QStringLiteral("Qt 文件传输工具 —— 客户端\n\n"
                        "基于 QTcpSocket 的文件发送端：自定义协议头 + bytesWritten 流水线发送，\n"
                        "支持文本消息与任意文件（文本/图片等），大文件不占用额外内存。\n\n"
-                       "与服务端窗口配套使用：先连接服务端 IP 与监听端口。"));
+                       "与服务端窗口配套使用：先连接服务端 IP 与监听端口。\n\n"
+                       "构建标记：进度自动归零版 v3"));
 }
 
 /* 拖入文件：客户端角色 = 发送给服务器 */
@@ -218,6 +232,7 @@ void ClientWindow::onClientStateChanged(bool connected)
 
 void ClientWindow::onSendStarted(const QString &fileName, qint64 total)
 {
+    m_progressTimer->stop();         // 新任务开始：取消尚未触发的复位定时
     ui->progressBar->setValue(0);
     ui->lblTransfer->setText(QStringLiteral("正在发送：%1").arg(fileName));
     ui->lblProgressDetail->setText(QStringLiteral("0 / %1（0%%）")
@@ -233,6 +248,10 @@ void ClientWindow::onSendProgress(const QString &fileName, qint64 sent, qint64 t
                                        .arg(Proto::formatFileSize(sent),
                                             Proto::formatFileSize(total))
                                        .arg(percent));
+    if (sent >= total) {
+        // 双保险：进度已到 100% 就启动复位定时（正常由 sendFinished 启动，此处兜底）
+        m_progressTimer->start();
+    }
 }
 
 void ClientWindow::onSendFinished(const QString &fileName, qint64 total)
@@ -241,14 +260,25 @@ void ClientWindow::onSendFinished(const QString &fileName, qint64 total)
     ui->lblTransfer->setText(QStringLiteral("发送完成：%1").arg(fileName));
     ui->lblProgressDetail->setText(QStringLiteral("共 %1").arg(Proto::formatFileSize(total)));
     statusBar()->showMessage(QStringLiteral("发送完成：%1").arg(fileName), 8000);
+    m_progressTimer->start();        // 100% 完成信息保留 1.5 秒后回到空闲状态
 }
 
 void ClientWindow::onSendFailed(const QString &reason)
 {
+    // 失败原因短暂显示后同样复位（详细原因已写入日志），避免进度条卡在中途数值
+    m_progressTimer->start();
     ui->lblTransfer->setText(QStringLiteral("发送失败：%1").arg(reason));
     statusBar()->showMessage(QStringLiteral("发送失败：%1").arg(reason), 8000);
     QMessageBox::warning(this, QStringLiteral("发送失败"),
                          QStringLiteral("%1\n\n详细信息见日志。").arg(reason));
+}
+
+/* 定时器到点：回到最初的空闲状态 —— 0% 灰色进度条 + "当前没有发送任务" */
+void ClientWindow::resetProgressToIdle()
+{
+    ui->progressBar->setValue(0);
+    ui->lblTransfer->setText(QStringLiteral("当前没有发送任务"));
+    ui->lblProgressDetail->setText(QString());
 }
 
 //---------------------------------------------------------------------

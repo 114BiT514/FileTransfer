@@ -13,7 +13,13 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QTimer>
 #include <QUrl>
+
+namespace {
+// 传输结束（100%或失败）后，进度区保留 1.5 秒，然后回到空闲的 0% 状态
+constexpr int kProgressResetMs = 1500;
+}
 
 QIcon ServerWindow::iconRes(const QString &name)
 {
@@ -76,6 +82,13 @@ ServerWindow::ServerWindow(QWidget *parent)
     connect(m_server, &FileServer::logError,           this, &ServerWindow::onLogError);
     // 4) 拖拽区：拖入文件 -> 保存
     connect(ui->dropArea, &DropArea::fileDropped, this, &ServerWindow::onFileDropped);
+
+    // 【信号与槽】传输结束后保留 1.5 秒，由定时器把进度区复位为空闲的 0% 状态
+    // （完成/失败/本地保存三条结束路径都会启动它，进度条不会卡在任何数值上）
+    m_progressTimer = new QTimer(this);
+    m_progressTimer->setSingleShot(true);
+    m_progressTimer->setInterval(kProgressResetMs);
+    connect(m_progressTimer, &QTimer::timeout, this, &ServerWindow::resetProgressToIdle);
 
     applySettingsToUi();
     updateUiState();
@@ -184,7 +197,8 @@ void ServerWindow::onAbout()
         QStringLiteral("Qt 文件传输工具 —— 服务端\n\n"
                        "基于 QTcpServer 的文件接收端：自定义协议分包组包（防粘包），\n"
                        "收到的文件先写 .part 临时文件，完成后改名保存，同名自动加序号。\n\n"
-                       "与客户端窗口配套使用：客户端连接本机 IP 与监听端口即可发送文件。"));
+                       "与客户端窗口配套使用：客户端连接本机 IP 与监听端口即可发送文件。\n\n"
+                       "构建标记：进度自动归零版 v3"));
 }
 
 /* 拖入文件：服务端角色 = 保存到接收目录 */
@@ -216,6 +230,12 @@ void ServerWindow::saveLocalFile(const QString &filePath)
         }
     }
     if (QFile::copy(filePath, target)) {
+        // 本地拖入保存也用进度区给出直观反馈：显示 100%，保留 1.5 秒后回到空闲状态
+        m_progressTimer->stop();
+        ui->progressBar->setValue(100);
+        ui->lblTransfer->setText(QStringLiteral("已保存：%1").arg(info.fileName()));
+        ui->lblProgressDetail->setText(target);
+        m_progressTimer->start();
         appendLog(QStringLiteral("已保存到接收目录：%1").arg(target), LogLevel::Ok);
         statusBar()->showMessage(QStringLiteral("文件已保存到 %1").arg(target), 5000);
     } else {
@@ -250,6 +270,7 @@ void ServerWindow::onClientDisconnected(const QString &peer)
 
 void ServerWindow::onRecvStarted(const QString &fileName, qint64 total)
 {
+    m_progressTimer->stop();         // 新任务开始：取消尚未触发的复位定时
     ui->progressBar->setValue(0);
     ui->lblTransfer->setText(QStringLiteral("正在接收：%1").arg(fileName));
     ui->lblProgressDetail->setText(QStringLiteral("0 / %1（0%%）")
@@ -265,6 +286,12 @@ void ServerWindow::onRecvProgress(const QString &fileName, qint64 received, qint
                                        .arg(Proto::formatFileSize(received),
                                             Proto::formatFileSize(total))
                                        .arg(percent));
+    if (received >= total) {
+        // 双保险：进度已到 100% 就启动复位定时。正常情况下 recvFinished 会先来
+        // 并启动同一个定时（重复 start 只是重新计时），这里保证即便结束信号
+        // 因任何原因没有送达，进度条也不会永远停在 100%。
+        m_progressTimer->start();
+    }
 }
 
 void ServerWindow::onRecvFinished(const QString &fileName, qint64 total, const QString &savedPath)
@@ -274,12 +301,23 @@ void ServerWindow::onRecvFinished(const QString &fileName, qint64 total, const Q
     ui->lblProgressDetail->setText(QStringLiteral("共 %1，保存于 %2")
                                        .arg(Proto::formatFileSize(total), savedPath));
     statusBar()->showMessage(QStringLiteral("文件已保存：%1").arg(savedPath), 8000);
+    m_progressTimer->start();        // 100% 完成信息保留 1.5 秒后回到空闲状态
 }
 
 void ServerWindow::onRecvFailed(const QString &reason)
 {
+    // 失败原因短暂显示后同样复位（详细原因已写入日志），避免进度条卡在中途数值
+    m_progressTimer->start();
     ui->lblTransfer->setText(QStringLiteral("接收失败：%1").arg(reason));
     statusBar()->showMessage(QStringLiteral("接收失败：%1").arg(reason), 8000);
+}
+
+/* 定时器到点：回到最初的空闲状态 —— 0% 灰色进度条 + "当前没有接收任务" */
+void ServerWindow::resetProgressToIdle()
+{
+    ui->progressBar->setValue(0);
+    ui->lblTransfer->setText(QStringLiteral("当前没有接收任务"));
+    ui->lblProgressDetail->setText(QString());
 }
 
 void ServerWindow::onTextReceived(const QString &peer, const QString &text)
