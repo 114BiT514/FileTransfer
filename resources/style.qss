@@ -1,0 +1,147 @@
+/* ============================================================
+ * Qt 文件传输工具 —— 全局 QSS 样式表
+ * 涵盖：按钮悬停变色、圆角、进度条、日志区、拖拽区高亮等
+ * ============================================================ */
+
+/* 全局字体 */
+QWidget {
+    font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "WenQuanYi Micro Hei", sans-serif;
+    font-size: 13px;
+}
+
+QMainWindow, QDialog {
+    background: #f4f7fb;
+}
+
+/* ---------------- 按钮（悬停/按下变色） ---------------- */
+QPushButton {
+    background: #2f81f7;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 14px;
+}
+QPushButton:hover {
+    background: #1f6feb;
+}
+QPushButton:pressed {
+    background: #175bc4;
+}
+QPushButton:disabled {
+    background: #b9cfe8;
+    color: #f2f6fb;
+}
+QPushButton#btnExit {
+    background: #64748b;
+}
+QPushButton#btnExit:hover {
+    background: #475569;
+}
+
+/* ---------------- 进度条 ---------------- */
+QProgressBar {
+    background: #e3eaf3;
+    border: 1px solid #cdd9e5;
+    border-radius: 9px;
+    min-height: 18px;
+    max-height: 18px;
+    text-align: center;
+    color: #1f3a5f;
+    font-weight: bold;
+}
+QProgressBar::chunk {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                stop:0 #4a9eff, stop:1 #2f81f7);
+    border-radius: 8px;
+}
+
+/* ---------------- 日志区（深色终端风） ---------------- */
+QTextBrowser#logView {
+    background: #1e2430;
+    color: #c9d8ee;
+    border: 1px solid #2c3648;
+    border-radius: 8px;
+    padding: 4px;
+    font-family: "Consolas", "JetBrains Mono", monospace;
+}
+
+/* ---------------- 拖拽接收区（含拖入高亮） ----------------
+ * DropArea 通过动态属性 dragOver 切换两种样式；
+ * 属性变化时代码中调用 unpolish/polish 使样式立即生效 */
+DropArea#dropArea {
+    background: #ffffff;
+    border: 2px dashed #b6c6d9;
+    border-radius: 12px;
+}
+DropArea#dropArea[dragOver="true"] {
+    background: #e8f2ff;
+    border: 2px dashed #2f81f7;
+}
+DropArea#dropArea QLabel {
+    background: transparent;
+    color: #64778f;
+}
+DropArea#dropArea[dragOver="true"] QLabel {
+    color: #2f81f7;
+    font-weight: bold;
+}
+
+/* ---------------- 分组框 ---------------- */
+QGroupBox {
+    background: #ffffff;
+    border: 1px solid #d4dee9;
+    border-radius: 8px;
+    margin-top: 12px;
+    padding-top: 4px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 4px;
+    color: #3b5a80;
+    font-weight: bold;
+}
+
+/* ---------------- 输入控件 ---------------- */
+QComboBox, QLineEdit, QSpinBox {
+    background: white;
+    border: 1px solid #cdd9e5;
+    border-radius: 6px;
+    padding: 5px 8px;
+}
+QComboBox:focus, QLineEdit:focus, QSpinBox:focus {
+    border-color: #2f81f7;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 22px;
+}
+
+/* ---------------- 菜单栏与菜单 ---------------- */
+QMenuBar {
+    background: #eef3f9;
+}
+QMenuBar::item {
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+QMenuBar::item:selected {
+    background: #dce7f5;
+}
+QMenu {
+    background: white;
+    border: 1px solid #cdd9e5;
+}
+QMenu::item {
+    padding: 6px 28px;
+}
+QMenu::item:selected {
+    background: #e8f2ff;
+    color: #1f4e8c;
+}
+
+/* ---------------- 状态栏 ---------------- */
+QStatusBar {
+    background: #e9eef6;
+    color: #41506b;
+}

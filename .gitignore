@@ -1,0 +1,15 @@
+# Qt 生成文件与构建产物（提交前无需包含）
+build/
+*/build/
+*.o
+*.obj
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+Makefile
+Makefile.*
+.qmake.stash
+*.pro.user*
+*.autosave
+test/build/
+test/recv/

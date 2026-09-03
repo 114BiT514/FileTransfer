@@ -1,0 +1,15 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <!-- Qt 资源系统：图标与 QSS 样式表编译进可执行文件，通过 ":/" 前缀访问 -->
+    <qresource prefix="/">
+        <file>icons/connect.png</file>
+        <file>icons/server.png</file>
+        <file>icons/send.png</file>
+        <file>icons/folder.png</file>
+        <file>icons/settings.png</file>
+        <file>icons/exit.png</file>
+        <file>icons/file.png</file>
+        <file>icons/app.png</file>
+        <file>style.qss</file>
+    </qresource>
+</RCC>
