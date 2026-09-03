@@ -100,10 +100,10 @@ ServerWindow::ServerWindow(QWidget *parent)
 
 ServerWindow::~ServerWindow()
 {
-    // 析构顺序：先停止网络逻辑并切断其到本窗口的信号，再销毁界面，
-    // 避免子对象析构过程中发出的日志/状态信号访问已释放的控件
-    m_server->stopListen();
+    // 析构顺序：先切断信号（防止停止监听过程中发出的信号访问正在销毁的界面），
+    // 再停止网络逻辑，最后销毁界面
     m_server->disconnect(this);
+    m_server->stopListen();
     delete ui;
     ui = nullptr;
 }

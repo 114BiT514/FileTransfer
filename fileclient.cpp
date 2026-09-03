@@ -93,6 +93,16 @@ void FileClient::sendText(const QString &text)
     m_type = Proto::MT_TEXT;
     m_fileName = QStringLiteral("(文本消息)");
     m_pendingText = text.toUtf8();
+    // 与服务端的防御性校验（kMaxTextSize）保持一致：超长文本提前拦截并提示，
+    // 避免发出后被服务端当作非法报文断开连接
+    if (m_pendingText.size() > Proto::kMaxTextSize) {
+        emit logError(QStringLiteral("文本消息过长（上限 %1），未发送")
+                          .arg(Proto::formatFileSize(Proto::kMaxTextSize)));
+        m_pendingText.clear();
+        m_type = 0;
+        m_fileName.clear();
+        return;
+    }
     m_fileSize = m_pendingText.size();
     m_file = nullptr;
     startTransfer();
@@ -123,6 +133,18 @@ void FileClient::sendFile(const QString &filePath)
     m_type = Proto::MT_FILE;
     m_fileName = info.fileName();             // 只发送文件名，不发送本地路径
     m_fileSize = file->size();
+    // 与服务端的防御性校验（kMaxFileSize）保持一致：超大文件提前拦截并提示
+    if (m_fileSize > Proto::kMaxFileSize) {
+        emit logError(QStringLiteral("文件超过 %1 上限，未发送")
+                          .arg(Proto::formatFileSize(Proto::kMaxFileSize)));
+        file->close();
+        file->deleteLater();
+        m_file = nullptr;
+        m_type = 0;
+        m_fileSize = 0;
+        m_fileName.clear();
+        return;
+    }
     emit logInfo(QStringLiteral("准备发送文件：%1（%2）")
                      .arg(m_fileName, Proto::formatFileSize(m_fileSize)));
     startTransfer();

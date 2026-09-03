@@ -98,9 +98,10 @@ ClientWindow::ClientWindow(QWidget *parent)
 
 ClientWindow::~ClientWindow()
 {
-    // 析构顺序：先断开网络并切断信号，再销毁界面（防止残余信号访问已释放控件）
-    m_client->disconnectFromServer();
+    // 析构顺序：先切断信号（避免断网时触发的"发送失败"信号在窗口销毁过程中
+    // 弹出模态对话框），再断开网络，最后销毁界面
     m_client->disconnect(this);
+    m_client->disconnectFromServer();
     delete ui;
     ui = nullptr;
 }
